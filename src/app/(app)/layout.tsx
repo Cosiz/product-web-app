@@ -1,6 +1,8 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { signOut } from "@/actions/auth"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -16,6 +18,16 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    await signOut()
+    router.push("/login")
+    router.refresh()
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex flex-col">
       {/* Desktop sidebar */}
@@ -44,11 +56,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
         <div className="p-3 border-t border-[var(--color-border)]">
-          <form action={signOut}>
-            <Button variant="ghost" type="submit" className="w-full justify-start text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]" data-testid="btn-logout">
-              Sign out
-            </Button>
-          </form>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="w-full justify-start text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            data-testid="btn-logout"
+          >
+            {signingOut ? "Signing out..." : "Sign out"}
+          </Button>
         </div>
       </aside>
 
@@ -74,7 +91,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {/* Main content */}
       <main className="flex-1 lg:ml-60 pb-20 lg:pb-0">
         {children}
       </main>

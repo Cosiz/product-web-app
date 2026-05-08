@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/database"
-import { addChildSchema, updateMemberSchema, updateLocationSchema } from "@/lib/schemas"
+import { addChildSchema, updateLocationSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { ZodError } from "zod"
@@ -20,17 +20,22 @@ export async function addChild(formData: FormData) {
 
   try {
     const data = addChildSchema.parse(raw)
+    const userId = user.id
+
     const { data: member } = await supabase
       .from("family_members")
       .select("family_id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single()
 
     if (!member) return { success: false, error: "Not in a family" }
 
     const { error } = await supabase.from("children").insert({
-      ...data,
       family_id: member.family_id,
+      display_name: data.display_name,
+      school_name: data.school_name ?? null,
+      school_gate: data.school_gate ?? null,
+      pickup_code: data.pickup_code ?? null,
     })
 
     if (error) throw error
@@ -56,17 +61,22 @@ export async function updateLocation(formData: FormData) {
 
   try {
     const data = updateLocationSchema.parse(raw)
+    const userId = user.id
+
     const { data: member } = await supabase
       .from("family_members")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single()
 
     if (!member) return { success: false, error: "Not a family member" }
 
     const { error } = await supabase.from("locations").insert({
       family_member_id: member.id,
-      ...data,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: data.accuracy ?? null,
+      battery_level: data.battery_level ?? null,
     })
 
     if (error) throw error
@@ -83,10 +93,11 @@ export async function checkInChild(childId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
     .select("family_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -110,10 +121,11 @@ export async function checkOutChild(childId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/login")
 
+  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
     .select("family_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -129,17 +141,5 @@ export async function checkOutChild(childId: string) {
   if (error) return { success: false, error: error.message }
   revalidatePath("/feed")
   revalidatePath("/dashboard")
-  return { success: true }
-}
-
-export async function updateMemberRole(memberId: string, updates: { role?: string; can_receive_tasks?: boolean; can_update_location?: boolean }) {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from("family_members")
-    .update(updates)
-    .eq("id", memberId)
-
-  if (error) return { success: false, error: error.message }
-  revalidatePath("/settings")
   return { success: true }
 }

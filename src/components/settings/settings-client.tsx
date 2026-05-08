@@ -1,36 +1,57 @@
 "use client"
 import { useState } from "react"
-import { useActionState } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { addChild, checkInChild, checkOutChild } from "@/actions/members"
 import { LANGUAGE_OPTIONS, ROLE_LABELS } from "@/lib/utils"
 import type { Family, User, FamilyMember, Child } from "@/lib/database.types"
 import { toast } from "sonner"
 
-interface Props {
-  family: Family
-  userProfile: User
-  members: FamilyMember[]
-  children: Child[]
-}
+interface Props { family: Family; userProfile: User; members: FamilyMember[]; children: Child[] }
+
+const childSchema = z.object({
+  display_name: z.string().min(1),
+  school_name: z.string().optional(),
+  school_gate: z.string().optional(),
+  pickup_code: z.string().optional(),
+})
+type ChildFormData = z.infer<typeof childSchema>
 
 function AddChildForm() {
-  const [state, formAction, pending] = useActionState(addChild, null)
+  const [submitting, setSubmitting] = useState(false)
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<ChildFormData>({
+    resolver: zodResolver(childSchema),
+  })
+
+  async function onSubmit(data: ChildFormData) {
+    setSubmitting(true)
+    const formData = new FormData()
+    formData.append("display_name", data.display_name)
+    if (data.school_name) formData.append("school_name", data.school_name)
+    if (data.school_gate) formData.append("school_gate", data.school_gate)
+    if (data.pickup_code) formData.append("pickup_code", data.pickup_code)
+    const result = await addChild(formData)
+    setSubmitting(false)
+    if (result.success) { toast.success("Child added"); reset() }
+    else { toast.error(result.error ?? "Failed") }
+  }
+
   return (
-    <form action={formAction} className="space-y-3">
-      <Input name="display_name" placeholder="Child's name" required data-testid="input-child-name" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
-      <Input name="school_name" placeholder="School name" data-testid="input-child-school" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
-      <Input name="school_gate" placeholder="Gate (e.g. Gate A)" data-testid="input-child-gate" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
-      <Input name="pickup_code" placeholder="Pickup code (optional)" data-testid="input-child-pickup-code" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
-      {state?.error && <p className="text-[var(--color-error)] text-xs">{state.error}</p>}
-      <Button type="submit" size="sm" disabled={pending} data-testid="btn-add-child" className="w-full">
-        {pending ? "Adding..." : "Add Child"}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+      <Input {...register("display_name")} placeholder="Child's name" required data-testid="input-child-name" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
+      {errors.display_name && <p className="text-[var(--color-error)] text-xs">{errors.display_name.message}</p>}
+      <Input {...register("school_name")} placeholder="School name" data-testid="input-child-school" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
+      <Input {...register("school_gate")} placeholder="Gate (e.g. Gate A)" data-testid="input-child-gate" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
+      <Input {...register("pickup_code")} placeholder="Pickup code (optional)" data-testid="input-child-pickup-code" className="bg-[var(--color-surface)] border-[var(--color-border)]" />
+      <Button type="submit" size="sm" disabled={submitting} data-testid="btn-add-child" className="w-full">
+        {submitting ? "Adding..." : "Add Child"}
       </Button>
     </form>
   )
@@ -43,11 +64,8 @@ export function SettingsClient({ family, userProfile, members, children }: Props
     <div className="p-4 lg:p-6 space-y-6 max-w-2xl">
       <h1 className="text-xl font-bold">Settings</h1>
 
-      {/* Family Info */}
       <Card className="bg-[var(--color-surface)] border-[var(--color-border)]">
-        <CardHeader>
-          <CardTitle className="text-base">Family</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Family</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -61,11 +79,8 @@ export function SettingsClient({ family, userProfile, members, children }: Props
         </CardContent>
       </Card>
 
-      {/* Profile */}
       <Card className="bg-[var(--color-surface)] border-[var(--color-border)]" data-testid="settings-form">
-        <CardHeader>
-          <CardTitle className="text-base">Profile</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Profile</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div>
             <Label htmlFor="display_name" className="text-[var(--color-text-secondary)]">Display Name</Label>
@@ -76,8 +91,8 @@ export function SettingsClient({ family, userProfile, members, children }: Props
             <Input id="email" name="email" defaultValue={userProfile.email} disabled className="mt-1.5 bg-[var(--color-surface-elevated)] border-[var(--color-border)] opacity-60" />
           </div>
           <div>
-            <Label htmlFor="language" className="text-[var(--color-text-secondary)]">Language</Label>
-            <Select value={language} onValueChange={setLanguage} data-testid="input-language">
+            <Label className="text-[var(--color-text-secondary)]">Language</Label>
+            <Select value={language} onValueChange={(v) => { if (!v) return; setLanguage(v) }} data-testid="input-language">
               <SelectTrigger className="mt-1.5 bg-[var(--color-surface-elevated)] border-[var(--color-border)]">
                 <SelectValue />
               </SelectTrigger>
@@ -92,11 +107,8 @@ export function SettingsClient({ family, userProfile, members, children }: Props
         </CardContent>
       </Card>
 
-      {/* Children */}
       <Card className="bg-[var(--color-surface)] border-[var(--color-border)]">
-        <CardHeader>
-          <CardTitle className="text-base">Children</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Children</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2" data-testid="child-list">
             {children.map(child => (
@@ -107,38 +119,23 @@ export function SettingsClient({ family, userProfile, members, children }: Props
                     {child.school_name && <p className="text-xs text-[var(--color-text-muted)]">{child.school_name}</p>}
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="text-xs h-7" data-testid={`btn-child-checkin-${child.id}`} onClick={async () => {
-                      const result = await checkInChild(child.id)
-                      toast.success(result.success ? "Checked in!" : result.error ?? "Error")
-                    }}>
-                      Arrived
-                    </Button>
-                    <Button size="sm" variant="outline" className="text-xs h-7" data-testid={`btn-child-checkout-${child.id}`} onClick={async () => {
-                      const result = await checkOutChild(child.id)
-                      toast.success(result.success ? "Checked out!" : result.error ?? "Error")
-                    }}>
-                      Left
-                    </Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7" data-testid={`btn-child-checkin-${child.id}`}
+                      onClick={async () => { const r = await checkInChild(child.id); toast.success(r.success ? "Checked in!" : r.error ?? "Error") }}>Arrived</Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7" data-testid={`btn-child-checkout-${child.id}`}
+                      onClick={async () => { const r = await checkOutChild(child.id); toast.success(r.success ? "Checked out!" : r.error ?? "Error") }}>Left</Button>
                   </div>
                 </div>
-                {child.school_gate && (
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1" data-testid={`child-school-gate-${child.id}`}>Gate: {child.school_gate}</p>
-                )}
+                {child.school_gate && <p className="text-xs text-[var(--color-text-muted)] mt-1" data-testid={`child-school-gate-${child.id}`}>Gate: {child.school_gate}</p>}
               </div>
             ))}
-            {children.length === 0 && (
-              <div className="text-center py-4 text-[var(--color-text-muted)] text-sm">No children added yet</div>
-            )}
+            {children.length === 0 && <div className="text-center py-4 text-[var(--color-text-muted)] text-sm">No children added yet</div>}
           </div>
           <AddChildForm />
         </CardContent>
       </Card>
 
-      {/* Members */}
       <Card className="bg-[var(--color-surface)] border-[var(--color-border)]">
-        <CardHeader>
-          <CardTitle className="text-base">Family Members</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">Family Members</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-2" data-testid="member-list">
             {members.map(member => (
@@ -149,7 +146,7 @@ export function SettingsClient({ family, userProfile, members, children }: Props
                   </div>
                   <div>
                     <p className="text-sm font-medium">{member.display_name}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{member.phone ?? member.email}</p>
+                    <p className="text-xs text-[var(--color-text-muted)]">{member.phone ?? ""}</p>
                   </div>
                 </div>
                 <Badge variant="outline" data-testid={`member-role-badge-${member.role}`} className="text-[10px]">
@@ -161,12 +158,9 @@ export function SettingsClient({ family, userProfile, members, children }: Props
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
       <Card className="bg-[var(--color-surface)] border-[var(--color-error)]/30">
         <CardContent className="p-4">
-          <Button variant="destructive" size="sm" data-testid="btn-leave-family">
-            Leave Family
-          </Button>
+          <Button variant="destructive" size="sm" data-testid="btn-leave-family">Leave Family</Button>
         </CardContent>
       </Card>
     </div>

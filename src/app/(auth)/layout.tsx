@@ -1,7 +1,7 @@
 "use client"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/database"
+import { createClient } from "@/lib/supabase-client"
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()

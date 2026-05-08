@@ -12,13 +12,14 @@ export async function uploadPhoto(formData: FormData) {
   const file = formData.get("file") as File | null
   if (!file) return { success: false, error: "No file provided" }
 
-  const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+  const MAX_SIZE = 10 * 1024 * 1024
   if (file.size > MAX_SIZE) return { success: false, error: "File too large. Maximum 10MB for photos." }
 
+  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
     .select("family_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -28,7 +29,7 @@ export async function uploadPhoto(formData: FormData) {
 
   const { error: uploadError } = await supabase.storage
     .from("photos")
-    .upload(fileName, file, { contentType: file.type })
+    .upload(fileName, file as never, { contentType: file.type } as never)
 
   if (uploadError) return { success: false, error: "Upload failed. Please try again." }
 
@@ -40,11 +41,11 @@ export async function uploadPhoto(formData: FormData) {
 
   const { error: dbErr } = await supabase.from("photos").insert({
     family_id: member.family_id,
-    uploaded_by: user.id,
+    uploaded_by: userId,
     url: publicUrl,
     caption: caption || null,
     taken_at: new Date().toISOString(),
-  })
+  } as never)
 
   if (dbErr) return { success: false, error: "Database error" }
 

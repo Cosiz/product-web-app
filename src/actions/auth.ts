@@ -1,21 +1,18 @@
 "use server"
 
 import { createClient } from "@/lib/database"
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 
-export async function signIn(formData: FormData) {
+export async function signIn(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const email = formData.get("email") as string
   const password = formData.get("password") as string
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { success: false, error: error.message }
-  revalidatePath("/")
-  redirect("/dashboard")
+  return { success: true }
 }
 
-export async function signUp(formData: FormData) {
+export async function signUp(formData: FormData): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient()
   const email = formData.get("email") as string
   const password = formData.get("password") as string
@@ -27,12 +24,10 @@ export async function signUp(formData: FormData) {
     options: { data: { display_name } },
   })
   if (error) return { success: false, error: error.message }
-  redirect("/join")
+  return { success: true }
 }
 
-export async function signOut() {
+export async function signOut(): Promise<void> {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  revalidatePath("/")
-  redirect("/login")
 }

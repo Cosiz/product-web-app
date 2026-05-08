@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/database"
-import { createTaskSchema, updateTaskSchema } from "@/lib/schemas"
+import { createTaskSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { ZodError } from "zod"
@@ -25,24 +25,38 @@ export async function createTask(formData: FormData) {
 
   try {
     const data = createTaskSchema.parse(raw)
-    const { data: { user: { id: userId } } } = await supabase.auth.getUser()
+    const userId = user.id
 
-    // Get family_id from user's family membership
     const { data: member } = await supabase
       .from("family_members")
-      .select("family_id")
+      .select("family_id, id")
       .eq("user_id", userId)
       .single()
 
     if (!member) throw new Error("Not a family member")
 
-    const { error } = await supabase.from("tasks").insert({
-      ...data,
+    const insertData: Record<string, unknown> = {
+      title: data.title,
       family_id: member.family_id,
       created_by: userId,
+      priority: data.priority,
+    }
+    if (data.description) insertData.description = data.description
+    if (data.assigned_to) insertData.assigned_to = data.assigned_to
+    if (data.child_id) insertData.child_id = data.child_id
+    if (data.due_date) insertData.due_date = data.due_date
+    if (data.location) insertData.location = data.location
+
+    const { error } = await supabase.from("tasks").insert(insertData)
+    if (error) throw error
+
+    await supabase.from("activity_feed").insert({
+      family_id: member.family_id,
+      actor_id: member.id,
+      event_type: "task_created",
+      event_data: { title: data.title },
     })
 
-    if (error) throw error
     revalidatePath("/tasks")
     revalidatePath("/dashboard")
     return { success: true }
@@ -67,11 +81,10 @@ export async function updateTaskStatus(taskId: string, status: "pending" | "in_p
 
   if (error) return { success: false, error: error.message }
 
-  // Log to activity feed
-  const { data: { user: { id: userId } } } = await supabase.auth.getUser()
+  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
-    .select("family_id")
+    .select("family_id, id")
     .eq("user_id", userId)
     .single()
 

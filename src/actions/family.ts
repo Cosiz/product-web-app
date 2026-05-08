@@ -13,25 +13,24 @@ export async function createFamily(formData: FormData) {
 
   const name = formData.get("name")
   try {
-    const data = createFamilySchema.parse({ name })
-    const { data: { user: { id: userId } } } = await supabase.auth.getUser()
+    const parsed = createFamilySchema.parse({ name })
+    const userId = user.id
 
     const { data: family, error: famErr } = await supabase
       .from("families")
-      .insert({ name: data.name })
+      .insert({ name: parsed.name } as never)
       .select()
       .single()
 
     if (famErr) throw famErr
 
-    // Add creator as commander
     await supabase.from("family_members").insert({
       family_id: family.id,
       user_id: userId,
       role: "commander",
       display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Commander",
       status: "active",
-    })
+    } as never)
 
     revalidatePath("/dashboard")
     return { success: true, family_id: family.id }
@@ -54,9 +53,8 @@ export async function joinFamily(formData: FormData) {
 
   try {
     const data = joinFamilySchema.parse(raw)
-    const { data: { user: { id: userId } } } = await supabase.auth.getUser()
+    const userId = user.id
 
-    // Find family by invite code
     const { data: family, error: famErr } = await supabase
       .from("families")
       .select("id")
@@ -65,7 +63,6 @@ export async function joinFamily(formData: FormData) {
 
     if (famErr || !family) return { success: false, error: "Invalid invite code" }
 
-    // Check if already a member
     const { data: existing } = await supabase
       .from("family_members")
       .select("id")
@@ -81,7 +78,7 @@ export async function joinFamily(formData: FormData) {
       role: data.role,
       display_name: data.display_name,
       status: "active",
-    })
+    } as never)
 
     revalidatePath("/dashboard")
     return { success: true }
