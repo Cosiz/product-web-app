@@ -34,7 +34,7 @@ export default function JoinPage() {
     formData.append("password", data.password)
     const result = await signUp(formData)
     if (result.success) {
-      router.push("/join")
+      router.push("/create-family")
     } else {
       setError(result.error ?? "Sign up failed")
     }

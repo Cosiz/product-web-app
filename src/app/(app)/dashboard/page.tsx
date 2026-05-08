@@ -9,7 +9,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/login")
 
   const family = await getFamilyByUser()
-  if (!family) redirect("/join")
+  if (!family) redirect("/create-family")
 
   const { data: members } = await supabase
     .from("family_members")
