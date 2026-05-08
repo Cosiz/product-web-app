@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { updateTaskStatus } from "@/actions/tasks"
 import { formatRelativeTime, PRIORITY_COLORS, STATUS_LABELS } from "@/lib/utils"
-import type { Task, FamilyMember, Child, ActivityFeedItem, Family } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type Task = Database["public"]["Tables"]["tasks"]["Row"]
+type FamilyMember = Database["public"]["Tables"]["family_members"]["Row"]
+type Child = Database["public"]["Tables"]["children"]["Row"]
+type ActivityFeedItem = Database["public"]["Tables"]["activity_feed"]["Row"]
+type Family = Database["public"]["Tables"]["families"]["Row"]
 import { toast } from "sonner"
 
 interface Props {
@@ -100,7 +105,7 @@ export function DashboardClient({ family, members, children, tasks, feed, userId
                           variant="outline"
                           className="text-[10px] px-1.5 py-0.5"
                           data-testid={`task-priority-${task.priority}`}
-                          style={{ borderColor: PRIORITY_COLORS[task.priority], color: PRIORITY_COLORS[task.priority] }}
+                          style={{ borderColor: PRIORITY_COLORS[task.priority ?? 'medium'], color: PRIORITY_COLORS[task.priority ?? 'medium'] }}
                         >
                           {task.priority}
                         </Badge>
@@ -162,7 +167,7 @@ export function DashboardClient({ family, members, children, tasks, feed, userId
                         {item.event_type === "child_checkout" && `🚶 ${getChildName(item.child_id)} left`}
                         {item.event_type === "member_joined" && `→ Member joined`}
                       </p>
-                      <p className="text-[10px] text-[var(--color-text-muted)]">{formatRelativeTime(item.created_at)}</p>
+                      <p className="text-[10px] text-[var(--color-text-muted)]">{formatRelativeTime(item.created_at ?? '')}</p>
                     </div>
                   </div>
                 ))}

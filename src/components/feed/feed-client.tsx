@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatRelativeTime } from "@/lib/utils"
-import type { ActivityFeedItem, FamilyMember, Child } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type ActivityFeedItem = Database["public"]["Tables"]["activity_feed"]["Row"]
+type FamilyMember = Database["public"]["Tables"]["family_members"]["Row"]
+type Child = Database["public"]["Tables"]["children"]["Row"]
 
 interface Props {
   feed: ActivityFeedItem[]
@@ -88,7 +91,7 @@ export function FeedClient({ feed, members, children }: Props) {
                   {item.event_type === "photo_added" && `📷 ${getMemberName(item.actor_id)} shared a photo`}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-[var(--color-text-muted)]">{formatRelativeTime(item.created_at)}</p>
+                  <p className="text-xs text-[var(--color-text-muted)]">{formatRelativeTime(item.created_at ?? '')}</p>
                   {item.is_critical && (
                     <Badge variant="outline" className="text-[8px] px-1 py-0 border-[var(--color-error)] text-[var(--color-error)]" data-testid="feed-critical-badge">
                       CRITICAL

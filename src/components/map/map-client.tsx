@@ -5,7 +5,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatRelativeTime } from "@/lib/utils"
-import type { Location, FamilyMember, Child } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type Location = Database["public"]["Tables"]["locations"]["Row"]
+type FamilyMember = Database["public"]["Tables"]["family_members"]["Row"]
+type Child = Database["public"]["Tables"]["children"]["Row"]
 
 interface Props {
   locations: Location[]
@@ -20,8 +23,9 @@ export function MapClient({ locations, members, children, userId }: Props) {
   const canShareLocation = currentMember?.can_update_location ?? false
 
   // Get latest location per member
-  const latestLocations = locations.reduce((acc, loc) => {
-    if (!acc[loc.family_member_id] || new Date(loc.recorded_at) > new Date(acc[loc.family_member_id].recorded_at)) {
+  const validLocations = locations.filter(l => l.recorded_at)
+  const latestLocations = validLocations.reduce((acc, loc) => {
+    if (!acc[loc.family_member_id] || new Date(loc.recorded_at!) > new Date(acc[loc.family_member_id].recorded_at!)) {
       acc[loc.family_member_id] = loc
     }
     return acc
@@ -131,7 +135,7 @@ export function MapClient({ locations, members, children, userId }: Props) {
                   <p className="text-sm font-medium">{member.display_name}</p>
                   {loc ? (
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      {formatRelativeTime(loc.recorded_at)}
+                      {formatRelativeTime(loc.recorded_at ?? '')}
                     </p>
                   ) : (
                     <p className="text-xs text-[var(--color-text-muted)]">Location off</p>

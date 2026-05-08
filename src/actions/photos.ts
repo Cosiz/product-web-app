@@ -1,25 +1,25 @@
 "use server"
 
 import { createClient } from "@/lib/database"
+import { uploadPhotoSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { ZodError } from "zod"
 
 export async function uploadPhoto(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const file = formData.get("file") as File | null
   if (!file) return { success: false, error: "No file provided" }
 
   const MAX_SIZE = 10 * 1024 * 1024
-  if (file.size > MAX_SIZE) return { success: false, error: "File too large. Maximum 10MB for photos." }
+  if (file.size > MAX_SIZE) return { success: false, error: "File too large. Maximum 10MB." }
 
-  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
     .select("family_id")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -41,11 +41,11 @@ export async function uploadPhoto(formData: FormData) {
 
   const { error: dbErr } = await supabase.from("photos").insert({
     family_id: member.family_id,
-    uploaded_by: userId,
+    uploaded_by: user.id,
     url: publicUrl,
     caption: caption || null,
     taken_at: new Date().toISOString(),
-  } as never)
+  })
 
   if (dbErr) return { success: false, error: "Database error" }
 

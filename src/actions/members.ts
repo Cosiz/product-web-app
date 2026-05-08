@@ -3,13 +3,12 @@
 import { createClient } from "@/lib/database"
 import { addChildSchema, updateLocationSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { ZodError } from "zod"
 
 export async function addChild(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const raw = {
     display_name: formData.get("display_name"),
@@ -20,12 +19,11 @@ export async function addChild(formData: FormData) {
 
   try {
     const data = addChildSchema.parse(raw)
-    const userId = user.id
 
     const { data: member } = await supabase
       .from("family_members")
       .select("family_id")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single()
 
     if (!member) return { success: false, error: "Not in a family" }
@@ -38,7 +36,7 @@ export async function addChild(formData: FormData) {
       pickup_code: data.pickup_code ?? null,
     })
 
-    if (error) throw error
+    if (error) return { success: false, error: error.message }
     revalidatePath("/settings")
     return { success: true }
   } catch (e) {
@@ -50,7 +48,7 @@ export async function addChild(formData: FormData) {
 export async function updateLocation(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const raw = {
     latitude: Number(formData.get("latitude")),
@@ -61,12 +59,11 @@ export async function updateLocation(formData: FormData) {
 
   try {
     const data = updateLocationSchema.parse(raw)
-    const userId = user.id
 
     const { data: member } = await supabase
       .from("family_members")
       .select("id")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single()
 
     if (!member) return { success: false, error: "Not a family member" }
@@ -79,7 +76,7 @@ export async function updateLocation(formData: FormData) {
       battery_level: data.battery_level ?? null,
     })
 
-    if (error) throw error
+    if (error) return { success: false, error: error.message }
     revalidatePath("/map")
     return { success: true }
   } catch (e) {
@@ -91,13 +88,12 @@ export async function updateLocation(formData: FormData) {
 export async function checkInChild(childId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
-  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
-    .select("family_id")
-    .eq("user_id", userId)
+    .select("id, family_id")
+    .eq("user_id", user.id)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -105,6 +101,7 @@ export async function checkInChild(childId: string) {
   const { error } = await supabase.from("activity_feed").insert({
     family_id: member.family_id,
     child_id: childId,
+    actor_id: member.id,
     event_type: "child_checkin",
     event_data: { timestamp: new Date().toISOString() },
     is_critical: false,
@@ -119,13 +116,12 @@ export async function checkInChild(childId: string) {
 export async function checkOutChild(childId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
-  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
-    .select("family_id")
-    .eq("user_id", userId)
+    .select("id, family_id")
+    .eq("user_id", user.id)
     .single()
 
   if (!member) return { success: false, error: "Not in a family" }
@@ -133,6 +129,7 @@ export async function checkOutChild(childId: string) {
   const { error } = await supabase.from("activity_feed").insert({
     family_id: member.family_id,
     child_id: childId,
+    actor_id: member.id,
     event_type: "child_checkout",
     event_data: { timestamp: new Date().toISOString() },
     is_critical: false,
@@ -142,4 +139,25 @@ export async function checkOutChild(childId: string) {
   revalidatePath("/feed")
   revalidatePath("/dashboard")
   return { success: true }
+}
+
+export async function getMembers() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: member } = await supabase
+    .from("family_members")
+    .select("family_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!member) return []
+
+  const { data: members } = await supabase
+    .from("family_members")
+    .select("id, display_name, role, status, can_receive_tasks, can_update_location, is_child")
+    .eq("family_id", member.family_id)
+
+  return members || []
 }

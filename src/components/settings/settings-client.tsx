@@ -11,7 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { addChild, checkInChild, checkOutChild } from "@/actions/members"
 import { LANGUAGE_OPTIONS, ROLE_LABELS } from "@/lib/utils"
-import type { Family, User, FamilyMember, Child } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type Family = Database["public"]["Tables"]["families"]["Row"]
+type User = Database["public"]["Tables"]["users"]["Row"]
+type FamilyMember = Database["public"]["Tables"]["family_members"]["Row"]
+type Child = Database["public"]["Tables"]["children"]["Row"]
 import { toast } from "sonner"
 
 interface Props { family: Family; userProfile: User; members: FamilyMember[]; children: Child[] }

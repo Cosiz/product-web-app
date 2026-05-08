@@ -1,9 +1,15 @@
 import { z } from "zod"
 
+// Re-export enums from database types for use in forms
+export const USER_ROLES = ["commander", "helper", "remote_parent", "child"] as const
+export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const
+export const TASK_STATUSES = ["pending", "in_progress", "completed", "cancelled"] as const
+export const MEMBER_STATUSES = ["active", "invited", "suspended"] as const
+
 export const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   description: z.string().max(2000).optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  priority: z.enum(TASK_PRIORITIES).default("medium"),
   assigned_to: z.string().uuid().optional(),
   child_id: z.string().uuid().optional(),
   due_date: z.string().datetime().optional(),
@@ -16,8 +22,8 @@ export const updateTaskSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-  status: z.enum(["pending", "in_progress", "completed", "cancelled"]).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
   assigned_to: z.string().uuid().optional().nullable(),
   due_date: z.string().datetime().optional().nullable(),
   location: z.string().max(500).optional().nullable(),
@@ -30,9 +36,9 @@ export const createFamilySchema = z.object({
 })
 
 export const joinFamilySchema = z.object({
-  invite_code: z.string().length(8),
+  invite_code: z.string().min(8).max(8),
   display_name: z.string().min(1).max(100),
-  role: z.enum(["helper", "remote_parent"]).default("helper"),
+  role: z.enum(USER_ROLES).default("helper"),
 })
 
 export const addChildSchema = z.object({
@@ -51,7 +57,7 @@ export const updateLocationSchema = z.object({
 
 export const updateMemberSchema = z.object({
   id: z.string().uuid(),
-  role: z.enum(["commander", "helper", "remote_parent"]).optional(),
+  role: z.enum(USER_ROLES).optional(),
   can_receive_tasks: z.boolean().optional(),
   can_update_location: z.boolean().optional(),
 })

@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog"
 import { Slot } from "@radix-ui/react-slot"
 import { formatDate } from "@/lib/utils"
-import type { Photo } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type Photo = Database["public"]["Tables"]["photos"]["Row"]
 import { toast } from "sonner"
 
 interface Props { photos: Photo[] }
@@ -99,7 +100,7 @@ export function AlbumClient({ photos }: Props) {
                 </button>
               </Slot>
               <DialogContent className="bg-[var(--color-surface-elevated)] border-[var(--color-border)] max-w-lg">
-                <DialogHeader><DialogTitle>{formatDate(photo.created_at)}</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{formatDate(photo.created_at ?? '')}</DialogTitle></DialogHeader>
                 <div>
                   <img src={photo.url} alt={photo.caption ?? "Family photo"} className="w-full rounded-lg"
                     onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/600x400/111113/6366F1?text=?" }} />

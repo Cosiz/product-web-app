@@ -1,20 +1,19 @@
 "use server"
 
 import { createClient } from "@/lib/database"
-import { createTaskSchema } from "@/lib/schemas"
+import { createTaskSchema, updateTaskSchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { ZodError } from "zod"
 
 export async function createTask(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const raw = {
     title: formData.get("title"),
     description: formData.get("description") || undefined,
-    priority: formData.get("priority") || "medium",
+    priority: (formData.get("priority") || "medium") as string,
     assigned_to: formData.get("assigned_to") || undefined,
     child_id: formData.get("child_id") || undefined,
     due_date: formData.get("due_date") || undefined,
@@ -25,20 +24,20 @@ export async function createTask(formData: FormData) {
 
   try {
     const data = createTaskSchema.parse(raw)
-    const userId = user.id
 
-    const { data: member } = await supabase
+    // Get family_id from family_members
+    const { data: member, error: memberErr } = await supabase
       .from("family_members")
-      .select("family_id, id")
-      .eq("user_id", userId)
+      .select("id, family_id")
+      .eq("user_id", user.id)
       .single()
 
-    if (!member) throw new Error("Not a family member")
+    if (memberErr || !member) return { success: false, error: "Not a family member" }
 
     const insertData: Record<string, unknown> = {
       title: data.title,
       family_id: member.family_id,
-      created_by: userId,
+      created_by: user.id,
       priority: data.priority,
     }
     if (data.description) insertData.description = data.description
@@ -48,7 +47,7 @@ export async function createTask(formData: FormData) {
     if (data.location) insertData.location = data.location
 
     const { error } = await supabase.from("tasks").insert(insertData)
-    if (error) throw error
+    if (error) return { success: false, error: error.message }
 
     await supabase.from("activity_feed").insert({
       family_id: member.family_id,
@@ -66,26 +65,21 @@ export async function createTask(formData: FormData) {
   }
 }
 
-export async function updateTaskStatus(taskId: string, status: "pending" | "in_progress" | "completed") {
+export async function updateTaskStatus(taskId: string, status: "pending" | "in_progress" | "completed" | "cancelled") {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const updates: Record<string, unknown> = { status }
   if (status === "completed") updates.completed_at = new Date().toISOString()
 
-  const { error } = await supabase
-    .from("tasks")
-    .update(updates)
-    .eq("id", taskId)
-
+  const { error } = await supabase.from("tasks").update(updates).eq("id", taskId)
   if (error) return { success: false, error: error.message }
 
-  const userId = user.id
   const { data: member } = await supabase
     .from("family_members")
-    .select("family_id, id")
-    .eq("user_id", userId)
+    .select("id, family_id")
+    .eq("user_id", user.id)
     .single()
 
   if (member) {
@@ -106,7 +100,7 @@ export async function updateTaskStatus(taskId: string, status: "pending" | "in_p
 export async function deleteTask(taskId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const { error } = await supabase.from("tasks").delete().eq("id", taskId)
   if (error) return { success: false, error: error.message }

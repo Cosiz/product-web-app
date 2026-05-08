@@ -3,34 +3,40 @@
 import { createClient } from "@/lib/database"
 import { createFamilySchema, joinFamilySchema } from "@/lib/schemas"
 import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
 import { ZodError } from "zod"
 
 export async function createFamily(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const name = formData.get("name")
   try {
     const parsed = createFamilySchema.parse({ name })
-    const userId = user.id
 
     const { data: family, error: famErr } = await supabase
       .from("families")
-      .insert({ name: parsed.name } as never)
-      .select()
+      .insert({ name: parsed.name })
+      .select("id")
       .single()
 
-    if (famErr) throw famErr
+    if (famErr || !family) return { success: false, error: famErr?.message || "Failed to create family" }
 
-    await supabase.from("family_members").insert({
+    // Get display_name from auth.users
+    const { data: authUser } = await supabase.from("users").select("display_name").eq("id", user.id).single()
+    const displayName = authUser?.display_name || user.email?.split("@")[0] || "Commander"
+
+    const { error: memberErr } = await supabase.from("family_members").insert({
       family_id: family.id,
-      user_id: userId,
+      user_id: user.id,
       role: "commander",
-      display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "Commander",
+      display_name: displayName,
       status: "active",
-    } as never)
+      can_receive_tasks: true,
+      can_update_location: true,
+    })
+
+    if (memberErr) return { success: false, error: memberErr.message }
 
     revalidatePath("/dashboard")
     return { success: true, family_id: family.id }
@@ -43,17 +49,16 @@ export async function createFamily(formData: FormData) {
 export async function joinFamily(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  if (!user) return { success: false, error: "Not authenticated" }
 
   const raw = {
     invite_code: formData.get("invite_code"),
     display_name: formData.get("display_name"),
-    role: formData.get("role") || "helper",
+    role: (formData.get("role") || "helper") as string,
   }
 
   try {
     const data = joinFamilySchema.parse(raw)
-    const userId = user.id
 
     const { data: family, error: famErr } = await supabase
       .from("families")
@@ -67,18 +72,20 @@ export async function joinFamily(formData: FormData) {
       .from("family_members")
       .select("id")
       .eq("family_id", family.id)
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .single()
 
-    if (existing) return { success: false, error: "You're already a member of this family" }
+    if (existing) return { success: false, error: "You are already a member of this family" }
 
-    await supabase.from("family_members").insert({
+    const { error: memberErr } = await supabase.from("family_members").insert({
       family_id: family.id,
-      user_id: userId,
+      user_id: user.id,
       role: data.role,
       display_name: data.display_name,
       status: "active",
-    } as never)
+    })
+
+    if (memberErr) return { success: false, error: memberErr.message }
 
     revalidatePath("/dashboard")
     return { success: true }

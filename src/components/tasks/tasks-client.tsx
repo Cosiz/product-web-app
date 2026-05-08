@@ -14,7 +14,10 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Slot } from "@radix-ui/react-slot"
 import { PRIORITY_COLORS, STATUS_LABELS, formatDate } from "@/lib/utils"
-import type { Task, FamilyMember, Child } from "@/lib/database.types"
+import type { Database } from "@/lib/database.types"
+type Task = Database["public"]["Tables"]["tasks"]["Row"]
+type FamilyMember = Database["public"]["Tables"]["family_members"]["Row"]
+type Child = Database["public"]["Tables"]["children"]["Row"]
 import { toast } from "sonner"
 
 interface Props { tasks: Task[]; members: FamilyMember[]; children: Child[]; userId: string }
@@ -167,11 +170,11 @@ export function TasksClient({ tasks, members, children, userId }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{task.title}</p>
                     <Badge variant="outline" data-testid={`task-priority-${task.priority}`} className="text-[10px]"
-                      style={{ borderColor: PRIORITY_COLORS[task.priority], color: PRIORITY_COLORS[task.priority] }}>
+                      style={{ borderColor: PRIORITY_COLORS[task.priority ?? 'medium'], color: PRIORITY_COLORS[task.priority ?? 'medium'] }}>
                       {task.priority}
                     </Badge>
                     <Badge variant="outline" data-testid={`task-status-${task.status}`} className="text-[10px]">
-                      {STATUS_LABELS[task.status]}
+                      {STATUS_LABELS[task.status ?? 'pending']}
                     </Badge>
                   </div>
                   {task.description && <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{task.description}</p>}
